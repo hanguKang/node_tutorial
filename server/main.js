@@ -46,70 +46,59 @@ let app = http.createServer(function (request, response) {
   let datas = [];
   let list = "<ul>";
 
-  const promise = new Promise((resolve, reject) => {
-    fs.readdir("../data/", (err, fileNames) => {
-      //readdirSync 는 동기식이지만, 전달인자로 callback함수를 전달할 수 없다.
-      let result = { datas: null, list: null };
-      //readdir('url', callback(err,files))은 'url'에  해당하는 files 몽땅 배열로 callback함수에 넣어준다.
-      console.log("fileNames : ", fileNames);
+  let fileNames = fs.readdirSync("../data/", "utf-8"); // 동기 방식이다.
+  console.log("fileNames : ", fileNames);
 
-      fileNames.forEach((fileName) => {
-        datas.push(fileName);
-        list += `<li><a href="?id=${fileName}">${fileName}</a></li>`;
-        //console.log(`목록 출력하기 ${datas}`);
-      });
-      list += "</ul>";
-      result.datas = datas;
-      result.list = list;
-      resolve(result);
-    });
-  }); //Promise End
-  promise.then((result) => {
-    datas = result.datas;
-    list = result.list;
-
-    if (pathname === "/") {
-      //console.log(` 출력 index :  ${datas}`);
-
-      //패쓰가 없는 경우 root로 접속했다면
-      if (_url == "/") {
-        // _url = "/index.html";
-        // return;
-        title = "Welcome";
-      }
-      if (_url == "/favicon.ico") {
-        return response.writeHead(404);
-      }
-      if (queryData.id === undefined) {
-        let title = "Welcome";
-        let description = "Hello, Node.js";
-
-        let template = templateHTML(title, list, description);
-        //fs.readFile(`../data/${title}`, "utf8", function (err, data) {
-
-        response.writeHead(200);
-        response.end(template); //response.end : 서버에서 브라우저 사이의 connection을 끊는 시점을 명시, express에는 response.send, response.json이 있다고 한다. - response.end([data[, encoding]][, callback])
-        //response.write : 서버가 브라우저에 response를 보내주는 역할만 하고, connection에는 영향을 미치지 않는다.
-        //response.write()을 이용하면 response를 여러 번에 걸쳐 계속 보내줄 수 있으며, 모든 response를 다 보낸 후에는 response.end()를 써서 종료시점을 명시해 줘야 한다.
-        //}); //fs.readFile End
-      } else {
-        fs.readFile(`../data/${title}`, "utf8", function (err, data) {
-          //reaFileSync는 전달인자로 callback함수를 전달할 수 없다.
-          //reaFileSync는 동기적으로 readFile은 비동기적으로 작동 readFile은 readdir과 달리 callback함수에 인자로 하나의 파일만 전달한다.
-          console.log(` 출력 목록 :  ${datas}`);
-          if (err) throw err;
-          console.log(title);
-          console.log(data);
-          let template = templateHTML(title, list, data);
-          response.writeHead(200);
-          response.end(template);
-        }); //fs.readFile End
-      }
-    } else {
-      response.writeHead(404);
-      response.end("Not found");
-    }
+  fileNames.forEach((fileName) => {
+    datas.push(fileName);
+    list += `<li><a href="?id=${fileName}">${fileName}</a></li>`;
+    //console.log(`목록 출력하기 ${datas}`);
   });
+  list += "</ul>";
+  console.log("datas : ", datas);
+  console.log("list : ", list);
+
+  if (pathname === "/") {
+    //console.log(` 출력 index :  ${datas}`);
+
+    //패쓰가 없는 경우 root로 접속했다면
+    if (_url == "/") {
+      // _url = "/index.html";
+      // return;
+      title = "Welcome";
+    }
+    if (_url == "/favicon.ico") {
+      return response.writeHead(404);
+    }
+    if (queryData.id === undefined) {
+      let title = "Welcome";
+      let description = "Hello, Node.js";
+
+      let template = templateHTML(title, list, description);
+      //fs.readFile(`../data/${title}`, "utf8", function (err, data) {
+
+      response.writeHead(200);
+      response.end(template); //response.end : 서버에서 브라우저 사이의 connection을 끊는 시점을 명시, express에는 response.send, response.json이 있다고 한다. - response.end([data[, encoding]][, callback])
+      //response.write : 서버가 브라우저에 response를 보내주는 역할만 하고, connection에는 영향을 미치지 않는다.
+      //response.write()을 이용하면 response를 여러 번에 걸쳐 계속 보내줄 수 있으며, 모든 response를 다 보낸 후에는 response.end()를 써서 종료시점을 명시해 줘야 한다.
+      //}); //fs.readFile End
+    } else {
+      fs.readFile(`../data/${title}`, "utf8", function (err, data) {
+        //reaFileSync는 전달인자로 callback함수를 전달할 수 없다.
+        //reaFileSync는 동기적으로 readFile은 비동기적으로 작동 readFile은 readdir과 달리 callback함수에 인자로 하나의 파일만 전달한다.
+        console.log(` 출력 목록 :  ${datas}`);
+        if (err) throw err;
+        console.log(title);
+        console.log(data);
+        let template = templateHTML(title, list, data);
+        response.writeHead(200);
+        response.end(template);
+      }); //fs.readFile End
+    }
+  } else {
+    response.writeHead(404);
+    response.end("Not found");
+  }
 
   /*
     let template = `
@@ -150,7 +139,7 @@ app.listen(3000);
 //4. pm2 delete 파일명
 //5. pm2 list  ==> pm2에 의해서 실행중인 목록 보여주기
 //   pm2 status
-//6. pm2 log --> start이후에 코드 수저중에 error가 있으면 그 내용을 보여준다.
+//6. pm2 log --> start이후에 코드 수정 중에 error가 있으면 그 내용을 보여준다.
 //   pm2 logs
 //7. pm2 log [프로세스 아이디]
 //   pm2 log 0
