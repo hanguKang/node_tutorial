@@ -1,6 +1,7 @@
 let http = require("http");
 let fs = require("fs");
 let url = require("url");
+let qs = require("querystring");
 
 let templateHTML = (title, list, description) => {
   let template = `<!doctype html>
@@ -12,6 +13,7 @@ let templateHTML = (title, list, description) => {
   <body>
     <h1><a href="/">WEB</a></h1>
     ${list}
+    <p><a href="/create">create</a></p>
     <h2>${title}</h2>
     ${description}
     </body>
@@ -43,6 +45,9 @@ let app = http.createServer(function (request, response) {
 
   let title = queryData.id; //임의로 주소에 127.0.0.1:3000?id=HTML이라고 입력할 때 id 값
   let pathname = url.parse(_url, true).pathname; //url객체의 path는 '/쿼리스트링'을 의미하고 pathname은 쿼리스트링을 제외한 나머지 string을 의미한다.
+  //https://example.com/about라는 페이지를 방문했지만
+  //실제 경로는 /about이 아니라 /info라고 되어있다면,  pathname은 /info , path는 /about이 된다.
+
   let datas = [];
   let list = "<ul>";
 
@@ -67,6 +72,8 @@ let app = http.createServer(function (request, response) {
   promise.then((result) => {
     datas = result.datas;
     list = result.list;
+
+    console.log("pathname : ", pathname);
 
     if (pathname === "/") {
       //console.log(` 출력 index :  ${datas}`);
@@ -105,6 +112,60 @@ let app = http.createServer(function (request, response) {
           response.end(template);
         }); //fs.readFile End
       }
+    } else if (pathname === "/create") {
+      let title = "Web - create";
+      let description = ` 
+      <form action="http://127.0.0.1:3000/create_process" method="post">
+        <p><label for="tit">title</label><input type="text" id="tit" name="title"/></p> 
+        <p><label for="description">내용</label><textarea id="description" name="description"></textarea></p> 
+        <p><input type="submit"></p> 
+      </form>
+      `;
+
+      let template = templateHTML(title, list, description);
+      //fs.readFile(`../data/${title}`, "utf8", function (err, data) {
+
+      response.writeHead(200);
+      response.end(template);
+    } else if (pathname === "/create_process") {
+      if (request.method === "POST") {
+        let body = "";
+        request.on("data", (data) => {
+          //data를 보낼 때 양이 너무 많으면 shutdown되기도 한다. 그래서, 서버쪽에서 data를 수신할 때마다 callback을 호출한다.
+          body += data;
+
+          //너무 많은 양일 때 커넥션을 죽인다.
+          //1e6은 1*Math.pow(10, 6) === 1* 100000000 ~ 1MB
+          if (body.length > 1e6) request.connnection.destory();
+        });
+        request.on("end", () => {
+          //qs는 querystring 모듈이다.
+          let post = qs.parse(body); //request.on("data"...); 즉, request객체를 통해서 들어온 data를 body에 할당하고 할당된 데이터들을 querystring모듈을 통해서 해석(실제 들어온 데이터들은 인간이 해석하기 힘듬)해서 post에 json형식으로 할당한다.
+          // console.log(post);
+          // console.log(post.title);
+          // console.log(post.description);
+          let title = post.title;
+          let description = `${title} 
+          ${post.description}`;
+          //request로 들어온 데이터를 파일시스템 fileSystem 모듈을 사용해서 저장한다.
+          fs.writeFile(`../data/${title}`, description, "utf8", (err) => {
+            if (err) throw err; //에러가 있다면 에러 처리
+            console.log("파일이 저장되었습니다.");
+
+            //일단 redirection 없이 여기서 마치면 하단의 response.end("susccess")로 페이지에서 success 출려하고 끝이다.
+
+            //redirection
+            //301과 302의 차이점 301은 주소가 완전히 변경됐다는 뜻이다. --> seo엔진에서 기존 사이트를 검색 목록에서 삭제, 302는 일시적으로 주소 변경
+            response.writeHead(302, {
+              Location: `/?id=${title}`,
+            });
+            console.log("why?");
+            response.end();
+          });
+        });
+      }
+      // response.writeHead(200); //response.writeHead가 여러개 있으면 마지막거 실행
+      // response.end("success"); //response.end 여러개 있으면 마지막거 실행
     } else {
       response.writeHead(404);
       response.end("Not found");
@@ -144,7 +205,7 @@ app.listen(3000);
 //sudo pm2 start main.js --watch  프로세스 메니저로
 //프로그램을 실행하고 중간에 멈추면 다시 실행시키거나 할 수 있다.
 //main.js를 pm2로 실행시킨 후에 활성상태 창에서 main.js를 중단시켜도 pm2가 다시 실행시킨다. / 소스코드를 변경시키면 main.js를 다시 시작시킨다. - 브라우저를 새로고침하면 다시 시작된 결과를 볼 수 있게 된다.
-//1. pm2 start 파일명
+//1. pm2 start 파일명 --watch
 //2. pm2 stop 파일명
 //3. pm2 restart 파일명
 //4. pm2 delete 파일명
